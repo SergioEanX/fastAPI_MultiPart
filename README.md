@@ -74,3 +74,5 @@ uploadFileAndData().catch((error) => {});
 
 ## Resources
 [Fast API HTTP Exceptions: Integrating Pydantic Validation Errors](https://www.getorchestra.io/guides/fast-api-http-exceptions-integrating-pydantic-validation-errors)   
+[Multipart Upload to Ceph Object Storage with Python and Boto3](https://medium.com/@jweng1/multipart-upload-to-ceph-object-storage-with-python-and-boto3-d53270fdf79)   
+
