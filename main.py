@@ -6,14 +6,16 @@ from datetime import datetime
 from random import choices
 from pathlib import Path
 from typing import Annotated, Type, Optional
-from pydantic import BaseModel, Field, EmailStr, ValidationError
-from fastapi import FastAPI, UploadFile, Form, File, Depends, status, HTTPException
+from pydantic import BaseModel, Field, EmailStr
+from fastapi import FastAPI, UploadFile, Form, File, Depends, status, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
 from aiofiles import open as aio_open
 from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 import logging
 
@@ -61,6 +63,34 @@ class Checker:
 
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Log the exception to the console
+    logger.error(f"An error occurred while validating data: {exc}")
+    # Iterate through the errors and create a list of error messages
+    error_messages = []
+    for error in exc.errors():
+        error_messages.append(f"Error at {'.'.join(map(str, error['loc']))}: {error['msg']}")
+
+    # Join the error messages into a single string
+    error_summary = "\n".join(error_messages)
+
+    # Return a response
+    return JSONResponse(
+        status_code=400,
+        content=jsonable_encoder({"detail": error_summary, "body": exc.errors()}),
+    )
+
+
+@app.exception_handler(Exception)
+async def catch_all_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "An unexpected error occurred."},
+    )
+
 logger.info('App started')
 
 
