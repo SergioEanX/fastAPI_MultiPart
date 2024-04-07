@@ -2,6 +2,7 @@ import string
 import asyncio
 import os
 import uvicorn
+import boto3
 from datetime import datetime
 from random import choices
 from pathlib import Path
@@ -16,12 +17,15 @@ from aiofiles import open as aio_open
 from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from dotenv import load_dotenv
 from pydantic import ValidationError
-
+from botocore.exceptions import NoCredentialsError
 import logging
 
 logger = logging.getLogger('main')
 env = load_dotenv()
 mongo_uri = os.getenv("uri")
+s3_endpoint_url = os.getenv("s3_endpoint_url")
+s3_access_key_id = os.getenv("s3_access_key_id")
+s3_secret_access_key = os.getenv("s3_secret_access_key")
 
 # enable debug logging for the asyncio module
 logger.setLevel(logging.DEBUG)
@@ -177,7 +181,58 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(file_path), filename=filename)
 
+s3_client = boto3.client('s3',
+                         endpoint_url=s3_endpoint_url,
+                         aws_access_key_id=s3_access_key_id,
+                         aws_secret_access_key=s3_secret_access_key)
 
+
+@app.post("/uploads3/")
+async def upload_file(file: UploadFile = File(...)):
+    # Create a temporary file and write chunks to it
+    temp_file_path = f"/tmp/{file.filename}"
+    chunk_size = 1024 * 1024  # 1 Mb
+    part_number = 1
+    parts = []
+
+    try:
+        # Start the multipart upload
+        multipart_upload = s3_client.create_multipart_upload(Bucket="your-bucket-name", Key=file.filename)
+
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+
+            # Write the chunk to a temporary file
+            with open(temp_file_path, "wb") as temp_file:
+                temp_file.write(chunk)
+
+            # Upload the chunk to S3
+            part = s3_client.upload_part(Bucket="your-bucket-name",
+                                         Key=file.filename,
+                                         PartNumber=part_number,
+                                         UploadId=multipart_upload["UploadId"],
+                                         Body=chunk)
+            parts.append({"PartNumber": part_number, "ETag": part["ETag"]})
+
+            # Increment the part number
+            part_number += 1
+
+        # Complete the multipart upload
+        s3_client.complete_multipart_upload(Bucket="your-bucket-name", Key=file.filename,
+                                            UploadId=multipart_upload["UploadId"],
+                                            MultipartUpload={"Parts": parts})
+
+        return {"filename": file.filename}
+
+    except NoCredentialsError:
+        return {"error": "Credentials not available"}
+
+    finally:
+        # Delete the temporary file
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 # @app.exception_handler(ValidationError)
 # async def validation_error_handler(request, exc):
 #     good_objects = []
@@ -195,6 +250,7 @@ async def download_file(filename: str):
 #             # and the error message to errors dictionary
 #             bad_objects.append(obj)
 #             errors[index] = e.messages
+
 
 # Error handler for RequestValidationError, resulting from Pydantic validation errors in requests
 @app.exception_handler(RequestValidationError)
