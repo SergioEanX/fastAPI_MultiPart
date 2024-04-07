@@ -1,4 +1,5 @@
-
+app.log
+uploaded_data/
 # Python
 *.pyc
 *.pyo
