@@ -65,33 +65,9 @@ class Checker:
 app = FastAPI()
 
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # Log the exception to the console
-    logger.error(f"An error occurred while validating data: {exc}")
-    # Iterate through the errors and create a list of error messages
-    error_messages = []
-    for error in exc.errors():
-        error_messages.append(f"Error at {'.'.join(map(str, error['loc']))}: {error['msg']}")
-
-    # Join the error messages into a single string
-    error_summary = "\n".join(error_messages)
-
-    # Return a response
-    return JSONResponse(
-        status_code=400,
-        content=jsonable_encoder({"detail": error_summary, "body": exc.errors()}),
-    )
-
-
-@app.exception_handler(Exception)
-async def catch_all_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"message": "An unexpected error occurred."},
-    )
-
-logger.info('App started')
+@app.post("/test")
+async def test_data(data: MyDataModel):
+    return {"message": f"Data submitted {data}"}
 
 
 # Define the main route, which returns the Uvicorn version and the current time
@@ -201,7 +177,48 @@ async def download_file(filename: str):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(str(file_path), filename=filename)
 
+
+# @app.exception_handler(ValidationError)
+# async def validation_error_handler(request, exc):
+#     good_objects = []
+#     bad_objects = []
+#     errors = {}
+#
+#     # Iterate over the list of objects
+#     for index, obj in enumerate(exc.raw_value):
+#         try:
+#             # Validate the object using pydantic
+#             validated_obj = MyDataModel(**obj)
+#             good_objects.append(validated_obj)
+#         except ValidationError as e:
+#             # If validation error, add the object to bad objects
+#             # and the error message to errors dictionary
+#             bad_objects.append(obj)
+#             errors[index] = e.messages
+
+# Error handler for RequestValidationError, resulting from Pydantic validation errors in requests
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # Log the exception to the console
+    logger.error(f"An error occurred while validating data: {exc}")
+    # Iterate through the errors and create a list of error messages
+    error_messages = []
+    for error in exc.errors():
+        error_messages.append(f"Error at {'.'.join(map(str, error['loc']))}: {error['msg']}")
+
+    # Join the error messages into a single string
+    error_summary = "\n".join(error_messages)
+
+    # Return a response
+    return JSONResponse(
+        status_code=442,
+        content=jsonable_encoder({"detail": error_summary, "body": exc.errors()}),
+    )
+
 # https://stackoverflow.com/questions/77602055/how-to-upload-both-files-and-a-list-of-dictionaries-using-pydantics-basemodel-i
 
 # check the link below for more details
 # https://stackoverflow.com/questions/65504438/how-to-add-both-file-and-json-body-in-a-fastapi-post-request/70640522#70640522
+
+
+# https://fastapi.tiangolo.com/tutorial/handling-errors/#override-request-validation-exceptions
