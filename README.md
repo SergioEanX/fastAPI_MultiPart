@@ -71,3 +71,6 @@ rl.on('line', () => {
 uploadFileAndData().catch((error) => {});
 
   ```
+
+## Resources
+[Fast API HTTP Exceptions: Integrating Pydantic Validation Errors](https://www.getorchestra.io/guides/fast-api-http-exceptions-integrating-pydantic-validation-errors)   
