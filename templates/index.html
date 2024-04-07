@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.27.2/axios.min.js"></script>
+    <title></title>
+</head>
+<body>
+<input type="file" id="fileInput" name="file" onchange="reset()" multiple><br>
+<input type="button" value="Submit using fetch" onclick="submitUsingFetch()">
+<input type="button" value="Submit using axios" onclick="submitUsingAxios()">
+<p id="resp"></p>
+<script>
+    function reset() {
+        const resp = document.getElementById("resp");
+        resp.innerHTML = "";
+        resp.style.color = "black";
+    }
+
+    function submitUsingFetch() {
+        const resp = document.getElementById("resp");
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput.files[0]) {
+            const formData = new FormData();
+            formData.append("data", JSON.stringify({"name": "foo", "point": 0.13, "is_accepted": false}));
+
+            for (const file of fileInput.files)
+                formData.append('files', file);
+
+            fetch('/submit', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    resp.innerHTML = JSON.stringify(data); // data is a JSON object
+                })
+                .catch(error => {
+                    console.error(error);
+                });
+        } else {
+            resp.innerHTML = "Please choose some file(s)...";
+            resp.style.color = "red";
+        }
+    }
+
+    function submitUsingAxios() {
+        var resp = document.getElementById("resp");
+        var fileInput = document.getElementById('fileInput');
+        if (fileInput.files[0]) {
+            var formData = new FormData();
+            formData.append("data", JSON.stringify({"user_email": "foo@tin.it", "institution": 0.13, "is_accepted": false}));
+            formData.append('excel_file', fileInput.files[0]);
+            // for (const file of fileInput.files)
+            //     formData.append('files', file);
+
+            axios({
+                method: 'POST',
+                url: '/upload',
+                data: formData,
+            })
+                .then(response => {
+                    resp.innerHTML = JSON.stringify(response.data); // response.data is a JSON object
+                })
+                .catch(error => {
+                    console.error(error);
+                });
+        } else {
+            resp.innerHTML = "Please choose some file(s)...";
+            resp.style.color = "red";
+        }
+    }
+
+</script>
+</body>
+</html>
