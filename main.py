@@ -1,6 +1,7 @@
 import string
 import asyncio
 import os
+import aiofiles
 import uvicorn
 import boto3
 from datetime import datetime
@@ -10,7 +11,7 @@ from typing import Annotated, Type, Optional
 from pydantic import BaseModel, Field, EmailStr
 from fastapi import FastAPI, UploadFile, Form, File, Depends, status, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.exceptions import RequestValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
 from aiofiles import open as aio_open
@@ -173,13 +174,36 @@ async def upload_data_and_file(data: MyDataModel = Depends(Checker(MyDataModel))
         return {"message": "Unexpected error occurred", "error": str(e)}
 
 
+CHUNK_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+async def file_iterator(file_path: str, chunk_size: int = CHUNK_SIZE):
+    async with aiofiles.open(file_path, 'rb') as f:
+        while True:
+            chunk = await f.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+
+
 # Define a route to download a file by its filename
+# @app.get("/download/{filename}")
+# async def download_file(filename: str):
+#     file_path = Path("uploaded_data") / filename
+#     if not file_path.exists() or not file_path.is_file():
+#         raise HTTPException(status_code=404, detail="File not found")
+#     return FileResponse(str(file_path), filename=filename)
+
 @app.get("/download/{filename}")
 async def download_file(filename: str):
     file_path = Path("uploaded_data") / filename
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(str(file_path), filename=filename)
+
+    return StreamingResponse(file_iterator(str(file_path)), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+
 
 s3_client = boto3.client('s3',
                          endpoint_url=s3_endpoint_url,
